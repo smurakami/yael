@@ -1,24 +1,24 @@
 /*
-Copyright © INRIA 2010-2011. 
-Authors: Matthijs Douze & Herve Jegou 
+Copyright © INRIA 2010-2011.
+Authors: Matthijs Douze & Herve Jegou
 Contact: matthijs.douze@inria.fr  herve.jegou@inria.fr
 
-This software is a computer program whose purpose is to provide 
-efficient tools for basic yet computationally demanding tasks, 
-such as find k-nearest neighbors using exhaustive search 
-and kmeans clustering. 
+This software is a computer program whose purpose is to provide
+efficient tools for basic yet computationally demanding tasks,
+such as find k-nearest neighbors using exhaustive search
+and kmeans clustering.
 
 This software is governed by the CeCILL license under French law and
-abiding by the rules of distribution of free software.  You can  use, 
+abiding by the rules of distribution of free software.  You can  use,
 modify and/ or redistribute the software under the terms of the CeCILL
 license as circulated by CEA, CNRS and INRIA at the following URL
-"http://www.cecill.info". 
+"http://www.cecill.info".
 
 As a counterpart to the access to the source code and  rights to copy,
 modify and redistribute granted by the license, users are provided only
 with a limited warranty  and the software's author,  the holder of the
 economic rights,  and the successive licensors  have only  limited
-liability. 
+liability.
 
 In this respect, the user's attention is drawn to the risks associated
 with loading,  using,  modifying and/or developing or reproducing the
@@ -27,9 +27,9 @@ that may mean  that it is complicated to manipulate,  and  that  also
 therefore means  that it is reserved for developers  and  experienced
 professionals having in-depth computer knowledge. Users are therefore
 encouraged to load and test the software's suitability as regards their
-requirements in conditions enabling the security of their systems and/or 
-data to be ensured and,  more generally, to use and operate it in the 
-same conditions as regards security. 
+requirements in conditions enabling the security of their systems and/or
+data to be ensured and,  more generally, to use and operate it in the
+same conditions as regards security.
 
 The fact that you are presently reading this means that you have had
 knowledge of the CeCILL license and that you accept its terms.
@@ -61,7 +61,7 @@ knowledge of the CeCILL license and that you accept its terms.
      g->w   (k)     weights of the mixture
      g->mu  (k*d)   the centroids (mean of the mixture)
      g->sigma (k*d) the  diagonal of the covariance matrix
-*/   
+*/
 
 
 /* Initialize a new GMM structure */
@@ -99,8 +99,8 @@ int sgemm_ (char *transa, char *transb, integer * m, integer *
             integer * ldc);
 
 
-int sgemv_(char *trans, integer *m, integer *n, real *alpha, 
-           const real *a, integer *lda, const real *x, integer *incx, real *beta, real *y, 
+int sgemv_(char *trans, integer *m, integer *n, real *alpha,
+           const real *a, integer *lda, const real *x, integer *incx, real *beta, real *y,
            integer *incy);
 
 #undef real
@@ -121,13 +121,13 @@ static void compute_sum_dcov(int ni,int ki,int di,
 
   float zero=0,one=1;
   sgemm_("Not transposed","Transposed",&d,&k,&n,&one,v,&d,p,&k,&zero,mu,&d);
-  
+
   float *v2=fvec_new_cpy(v,n*(long)d);
   fvec_sqr(v2,n*(long)d);
-  
+
   sgemm_("Not transposed","Transposed",&d,&k,&n,&one,v2,&d,p,&k,&zero,sigma,&d);
   free(v2);
-  
+
   for (j = 0 ; j < k ; j++) {
     float *sigma_j=sigma+j*d;
     const float *mu_old_j=mu_old+j*d;
@@ -135,7 +135,7 @@ static void compute_sum_dcov(int ni,int ki,int di,
     for(l=0;l<d;l++) {
       sigma_j[l]+=mu_old_j[l]*(mu_old_j[l]*w[j]-2*mu_j[l]);
     }
-  }    
+  }
 
 }
 
@@ -149,9 +149,9 @@ static void compute_sum_dcov_thread(int n,int k,int d,
 static float min_sigma=1e-10;
 
 /* estimate the GMM parameters */
-static void gmm_compute_params (int n, const float * v, const float * p, 
+static void gmm_compute_params (int n, const float * v, const float * p,
                                 gmm_t * g,
-                                int flags,                         
+                                int flags,
                                 int n_thread)
 {
   long i, j;
@@ -173,18 +173,18 @@ static void gmm_compute_params (int n, const float * v, const float * p,
         /* contribution to the gaussian weight */
         dtmp += p[i * k + j];
         /* contribution to mu */
-        
+
         fvec_cpy (vtmp, v + i * d, d);
         fvec_mul_by (vtmp, d, p[i * k + j]);
         fvec_add (g->mu + j * d, vtmp, d);
-        
+
         /* contribution to the variance */
         fvec_cpy (vtmp, v + i * d, d);
         fvec_sub (vtmp, mu_old + j * d, d);
         fvec_sqr (vtmp, d);
         fvec_mul_by (vtmp, d, p[i * k + j]);
         fvec_add (g->sigma + j * d, vtmp, d);
-        
+
       }
       g->w[j] = dtmp;
     }
@@ -192,7 +192,7 @@ static void gmm_compute_params (int n, const float * v, const float * p,
   } else {
     /* fast and complicated */
 
-    if(n_thread<=1) 
+    if(n_thread<=1)
       compute_sum_dcov(n,k,d,v,mu_old,p,g->mu,g->sigma,g->w);
     else
       compute_sum_dcov_thread(n,k,d,v,mu_old,p,g->mu,g->sigma,g->w,n_thread);
@@ -207,7 +207,7 @@ static void gmm_compute_params (int n, const float * v, const float * p,
   }
 
   long nz=0;
-  for(i=0;i<k*d;i++) 
+  for(i=0;i<k*d;i++)
     if(g->sigma[i]<min_sigma) {
       g->sigma[i]=min_sigma;
       nz++;
@@ -244,7 +244,7 @@ double static sqr (double x)
 }
 
 
-#define CHECKFINITE(a) if(!isfinite(a)) {fprintf(stderr,"!!!! gmm_compute_p: not finite " #a "=%g at line %d\n",a,__LINE__); abort(); }; 
+#define CHECKFINITE(a) if(!isfinite(a)) {fprintf(stderr,"!!!! gmm_compute_p: not finite " #a "=%g at line %d\n",a,__LINE__); abort(); };
 
 
 static void compute_mahalanobis_sqr(int n,long k,long d,
@@ -253,45 +253,45 @@ static void compute_mahalanobis_sqr(int n,long k,long d,
                                     float *p) {
   FINTEGER di=d,ki=k,ni=n; /* for blas functions */
   long i, j, l;
-    
+
   float *mu2_sums=fvec_new(k);
-  
+
   for (j = 0 ; j < k ; j++) {
     double dtmp = 0;
-    for (l = 0 ; l < d ; l++) 
-      dtmp += sqr(mu[j * d + l]) / sigma[j * d + l];      
+    for (l = 0 ; l < d ; l++)
+      dtmp += sqr(mu[j * d + l]) / sigma[j * d + l];
     mu2_sums[j]=dtmp;
   }
-  
-  for (i = 0 ; i < n ; i++) 
-    for (j = 0 ; j < k ; j++) 
+
+  for (i = 0 ; i < n ; i++)
+    for (j = 0 ; j < k ; j++)
       p[i * k + j]=mu2_sums[j];
-  
+
   free(mu2_sums);
-  
+
   float *v2=fvec_new(d*n);
-  for (i = 0 ; i < n*d ; i++) 
+  for (i = 0 ; i < n*d ; i++)
     v2[i]=v[i]*v[i];
-  
+
   float *inv_sigma=fvec_new(k*d);
-  for (i = 0 ; i < k*d ; i++) 
+  for (i = 0 ; i < k*d ; i++)
     inv_sigma[i]=1.0/sigma[i];
-  
+
   float one=1;
-  
+
   sgemm_("Transposed","Not transposed",&ki,&ni,&di,&one,inv_sigma,&di,v2,&di,&one,p,&ki);
-  
+
   free(v2);
-  
+
   float *mu_sigma=inv_sigma;
-  for (i = 0 ; i < k*d ; i++) 
+  for (i = 0 ; i < k*d ; i++)
     mu_sigma[i]=mu[i]/sigma[i];
-  
+
   float minus_two=-2;
-  
-  sgemm_("Transposed","Not transposed",&ki,&ni,&di,&minus_two,mu_sigma,&di,v,&di,&one,p,&ki);  
-  
-  free(mu_sigma);      
+
+  sgemm_("Transposed","Not transposed",&ki,&ni,&di,&minus_two,mu_sigma,&di,v,&di,&one,p,&ki);
+
+  free(mu_sigma);
 
 }
 
@@ -301,8 +301,8 @@ static void softmax_ref(int k, int n, const float *f, float *p, float *coeffs) {
   int i;
   float norm_to_0 = 16.636; /* log(2^24) */
 
-#define F(i,j) f[(i) + (j) * k] 
-#define P(i,j) p[(i) + (j) * k] 
+#define F(i,j) f[(i) + (j) * k]
+#define P(i,j) p[(i) + (j) * k]
 
   for (i = 0; i < n; i++) { /* loop over examples */
     int l;
@@ -317,16 +317,16 @@ static void softmax_ref(int k, int n, const float *f, float *p, float *coeffs) {
       /* P(l, i) = exp(F(l, i) - maxval); */
       if(F(l, i) > maxval - norm_to_0) {
         P(l, i) = exp(F(l, i) - maxval);
-        s += P(l, i); 
-      } else 
-        P(l, i) = 0; 
+        s += P(l, i);
+      } else
+        P(l, i) = 0;
     }
 
-    if(coeffs) 
+    if(coeffs)
       coeffs[i] = log(s) + maxval;
-    
+
     float is = 1.0 / s;
-    for(l = 0; l < k; l++) 
+    for(l = 0; l < k; l++)
       P(l, i) *= is;
   }
 
@@ -338,8 +338,8 @@ static void softmax_ref(int k, int n, const float *f, float *p, float *coeffs) {
 
 /* compute p(ci|x). Warning: also update det */
 
-void gmm_compute_p (int n, const float * v, 
-                    const gmm_t * g, 
+void gmm_compute_p (int n, const float * v,
+                    const gmm_t * g,
                     float * p,
                     int flags)
 {
@@ -373,18 +373,18 @@ void gmm_compute_p (int n, const float * v,
       }
     }
   } else { /* complicated & fast */
-    compute_mahalanobis_sqr(n,k,d,g->mu,g->sigma,v,p); 
+    compute_mahalanobis_sqr(n,k,d,g->mu,g->sigma,v,p);
   }
 
-  float *lg = (float*)malloc(sizeof(float) *  k); 
+  float *lg = (float*)malloc(sizeof(float) *  k);
 
   if(flags & GMM_FLAGS_W) {
-    for (j = 0 ; j < k ; j++) 
-      lg[j] = log(g->w[j]);      
+    for (j = 0 ; j < k ; j++)
+      lg[j] = log(g->w[j]);
   } else
     memset(lg, 0, sizeof(float) * k);
-  
-  for (i = 0 ; i < n ; i++) {      
+
+  for (i = 0 ; i < n ; i++) {
     /* p contains log(p_j(x|\lambda)) eq (7) */
     for (j = 0 ; j < k ; j++) {
       p[i * k + j] = logdetnr[j] - 0.5 * p[i * k + j] + lg[j];
@@ -400,17 +400,17 @@ void gmm_compute_p (int n, const float * v,
 
 void gmm_handle_empty(int n, const float *v, gmm_t *g, float *p) {
   long d=g->d, k=g->k;
-  
+
   long nz=fvec_count_occurrences(p,k*n,0);
   printf("nb of 0 probabilities: %ld / (%ld*%d) = %.1f %%\n",
-         nz,k,n,nz*100.0/(k*n));         
+         nz,k,n,nz*100.0/(k*n));
 
   int i,j;
   float *w=fvec_new_0(k);
-  for (i = 0 ; i < n ; i++) 
-    for (j = 0 ; j < k ; j++) 
+  for (i = 0 ; i < n ; i++)
+    for (j = 0 ; j < k ; j++)
       w[j]+=p[j+i*k];
-      
+
   int bigprime=1000003;
 
   for (j = 0 ; j < k ; j++) if(w[j]==0) {
@@ -421,32 +421,32 @@ void gmm_handle_empty(int n, const float *v, gmm_t *g, float *p) {
     j2=j;
     retry:
     for(i=0;i<k;i++) {
-      j2=(j2+bigprime)%k; 
+      j2=(j2+bigprime)%k;
       if(w[j2]>0) break;
     }
     assert(i<k || !"could not find centroid to split, veeeery bad input data");
 
-    printf("try share with cent %d...", j2); 
-    fflush(stdout);    
+    printf("try share with cent %d...", j2);
+    fflush(stdout);
 
     /* dimension to split: that with highest variance */
     int split_dim = fvec_arg_max (g->sigma + d * j2, d);
 
-    int nnz = 0; 
+    int nnz = 0;
     for(i=0;i<n;i++) {
-      if(p[j2+i*k]>0) 
-        nnz++; 
+      if(p[j2+i*k]>0)
+        nnz++;
     }
-    
+
     if(nnz < n / k) { /* share only with centroid that has above-average nb of pts */
-      printf("has too few pts (%d)...", nnz); 
+      printf("has too few pts (%d)...", nnz);
       fflush(stdout);
-      goto retry; 
-    }      
+      goto retry;
+    }
 
     /* transfer half(?) of the points from j2 -> j */
     int nt=0;
-    for(i=0;i<n;i++) if(p[j2+i*k]>0) { 
+    for(i=0;i<n;i++) if(p[j2+i*k]>0) {
       if(v[i*d+split_dim]<g->mu[j2*d+split_dim]) {
         p[j+i*k]=p[j2+i*k];
         p[j2+i*k]=0;
@@ -454,21 +454,21 @@ void gmm_handle_empty(int n, const float *v, gmm_t *g, float *p) {
       }
     }
 
-    printf("split %d at dim %d (variance %g, transferred %d/%d pts)\n",                      
-           j2,split_dim,g->sigma[d*j2+split_dim],nt,nnz);        
-    
-    if(nt == nnz || nt == 0) 
+    printf("split %d at dim %d (variance %g, transferred %d/%d pts)\n",
+           j2,split_dim,g->sigma[d*j2+split_dim],nt,nnz);
+
+    if(nt == nnz || nt == 0)
       printf("  still not balanced !!! (expect crash)\n");
-    
+
     w[j2]=-1; /* avoid further splits */
   }
-  
+
   free(w);
 
 }
 
 
-gmm_t * gmm_learn (int di, int ni, int ki, int niter, 
+gmm_t * gmm_learn (int di, int ni, int ki, int niter,
 	   const float * v, int nt, int seed, int nredo,
 	   int flags)
 {
@@ -486,8 +486,8 @@ gmm_t * gmm_learn (int di, int ni, int ki, int niter,
   /* initialize the GMM: k-means + variance estimation */
   int * nassign = ivec_new (n);  /* not useful -> to be removed when debugged */
   float * dis = fvec_new (n);
-  kmeans (d, n, k, niter, v, nt, seed, nredo, g->mu, dis, NULL, nassign); 
-  
+  kmeans (d, n, k, niter, v, nt, seed, nredo, g->mu, dis, NULL, nassign);
+
   fflush (stderr);
   fprintf (stderr, "assign = ");
   ivec_print (nassign, k);
@@ -504,16 +504,16 @@ gmm_t * gmm_learn (int di, int ni, int ki, int niter,
 
   /* start the EM algorithm */
   fprintf (stdout, "<><><><> GMM  <><><><><>\n");
-      
+
   if(flags & GMM_FLAGS_PURE_KMEANS) niter=0;
 
   for (iter = 1 ; iter <= niter ; iter++) {
-    
+
     gmm_compute_p_thread (n, v, g, p, flags, nt);
     fflush(stdout);
 
     gmm_handle_empty(n, v, g, p);
-    
+
     gmm_compute_params (n, v, p, g, flags, nt);
     fflush(stdout);
 
@@ -533,7 +533,76 @@ gmm_t * gmm_learn (int di, int ni, int ki, int niter,
   fprintf (stderr, "\n");
 
   free(p);
-  
+
+  return g;
+}
+
+gmm_t * gmm_learn_w (int di, int ni, int ki, int niter,
+     const float * v, const float * w, int nt, int seed, int nredo,
+     int flags)
+{
+  long d=di,k=ki,n=ni;
+
+  int iter, iter_tot = 0;
+  double old_key, key = 666;
+
+  niter = (niter == 0 ? 10000 : niter);
+
+  /* the GMM parameters */
+  float * p = fvec_new_0 (n * k);      /* p(ci|x) for all i */
+  gmm_t * g = gmm_new (d, k);
+
+  /* initialize the GMM: k-means + variance estimation */
+  int * nassign = ivec_new (n);  /* not useful -> to be removed when debugged */
+  float * dis = fvec_new (n);
+  kmeans (d, n, k, niter, v, nt, seed, nredo, g->mu, dis, NULL, nassign);
+
+  fflush (stderr);
+  fprintf (stderr, "assign = ");
+  ivec_print (nassign, k);
+  fprintf (stderr, "\n");
+  free (nassign);
+
+  /* initialization of the GMM parameters assuming a diagonal matrix */
+  fvec_set (g->w, k, 1.0 / k);
+  double sig = fvec_sum (dis, n) / n;
+  printf ("sigma at initialization = %.3f\n", sig);
+  fvec_set (g->sigma, k * d, sig);
+  free (dis);
+
+
+  /* start the EM algorithm */
+  fprintf (stdout, "<><><><> GMM  <><><><><>\n");
+
+  if(flags & GMM_FLAGS_PURE_KMEANS) niter=0;
+
+  for (iter = 1 ; iter <= niter ; iter++) {
+
+    gmm_compute_p_thread (n, v, g, p, flags, nt);
+    fflush(stdout);
+
+    gmm_handle_empty(n, v, g, p);
+
+    gmm_compute_params (n, v, p, g, flags, nt);
+    fflush(stdout);
+
+
+    iter_tot++;
+
+    /* convergence reached -> leave */
+    old_key = key;
+    key = fvec_sum (g->mu, k * d);
+
+    printf ("keys %5d: %.6f -> %.6f\n", iter, old_key, key);
+    fflush(stdout);
+
+    if (key == old_key)
+      break;
+  }
+  fprintf (stderr, "\n");
+
+  free(p);
+
   return g;
 }
 
@@ -554,7 +623,7 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
   long ii=0;
 
   float * vp = NULL; /* v*p */
-  float * sum_pj = NULL; /* sum of p's for a given j */  
+  float * sum_pj = NULL; /* sum of p's for a given j */
 
   gmm_compute_p(n,v,g,p,flags | GMM_FLAGS_W);
 
@@ -568,35 +637,35 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 
     for(j=1;j<k;j++) {
       double accu=0;
-      
-      for(i=0;i<n;i++) 
+
+      for(i=0;i<n;i++)
         accu+= P(j,i)/g->w[j] - P(0,i)/g->w[0];
-      
+
       /* normalization */
       double f=n*(1/g->w[j]+1/g->w[0]);
-      
+
       dp_dlambda[ii++]=accu/sqrt(f);
     }
-  } 
+  }
 
   if(flags & GMM_FLAGS_MU) {
     float *dp_dmu=dp_dlambda+ii;
 
 #define DP_DMU(l,j) dp_dmu[(j)*d+(l)]
-    
+
     if(0) { /* simple and slow */
-    
+
       for(j=0;j<k;j++) {
         for(l=0;l<d;l++) {
           double accu=0;
-          
-          for(i=0;i<n;i++) 
+
+          for(i=0;i<n;i++)
             accu += P(j,i) * (V(l,i)-MU(l,j)) / SIGMA(l,j);
-          
+
           DP_DMU(l,j)=accu;
         }
       }
-      
+
     } else { /* complicated and fast */
 
       /* precompute  tables that may be useful for sigma too */
@@ -604,9 +673,9 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
       fmat_mul_tr(v,p,d,k,n,vp);
 
       sum_pj = fvec_new(k);
-      for(j=0;j<k;j++) {        
-        double sum=0;        
-        for(i=0;i<n;i++) sum += P(j,i);        
+      for(j=0;j<k;j++) {
+        double sum=0;
+        for(i=0;i<n;i++) sum += P(j,i);
         sum_pj[j] = sum;
       }
 
@@ -619,11 +688,11 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 
     /* normalization */
     if(!(flags & GMM_FLAGS_NO_NORM)) {
-      for(j=0;j<k;j++) 
+      for(j=0;j<k;j++)
         for(l=0;l<d;l++) {
           float nf = sqrt(n*g->w[j]/SIGMA(l,j));
-          if(nf > 0) DP_DMU(l,j) /= nf;                
-        }        
+          if(nf > 0) DP_DMU(l,j) /= nf;
+        }
     }
 #undef DP_DMU
     ii+=d*k;
@@ -631,33 +700,33 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 
   if(flags & (GMM_FLAGS_SIGMA | GMM_FLAGS_1SIGMA)) {
 
-    
+
     if(flags & GMM_FLAGS_1SIGMA) { /* fast not implemented for 1 sigma */
 
       for(j=0;j<k;j++) {
         double accu2=0;
         for(l=0;l<d;l++) {
           double accu=0;
-        
-          for(i=0;i<n;i++) 
+
+          for(i=0;i<n;i++)
             accu += P(j,i) * (sqr(V(l,i)-MU(l,j)) / SIGMA(l,j) - 1) / sqrt(SIGMA(l,j));
-        
+
           if(flags & GMM_FLAGS_SIGMA) {
 
             double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*n*g->w[j]/SIGMA(l,j);
-          
+
             dp_dlambda[ii++]=accu/sqrt(f);
-          } 
-          accu2+=accu;        
+          }
+          accu2+=accu;
         }
 
         if(flags & GMM_FLAGS_1SIGMA) {
           double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*d*n*g->w[j]/SIGMA(0,j);
-          dp_dlambda[ii++]=accu2/sqrt(f);        
+          dp_dlambda[ii++]=accu2/sqrt(f);
         }
 
-      }  
-    
+      }
+
     } else { /* fast and complicated */
       assert(flags & GMM_FLAGS_SIGMA);
       float *dp_dsigma = dp_dlambda + ii;
@@ -669,9 +738,9 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 
       if(!sum_pj) {
         sum_pj = fvec_new(k);
-        for(j=0;j<k;j++) {        
-          double sum=0;        
-          for(i=0;i<n;i++) sum += P(j,i);        
+        for(j=0;j<k;j++) {
+          double sum=0;
+          for(i=0;i<n;i++) sum += P(j,i);
           sum_pj[j] = sum;
         }
       }
@@ -710,8 +779,8 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 
         }
 
-      }  
-      
+      }
+
       free(v2p);
 
 #undef DP_DSIGMA
@@ -720,7 +789,7 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
     }
 
   }
-  
+
   assert(ii==gmm_fisher_sizeof(g,flags));
 #undef P
 #undef V
@@ -740,7 +809,7 @@ void gmm_print(const gmm_t *g) {
     printf("   w=%g, mu=[",g->w[i]);
     for(j=0;j<g->d;j++) printf("%g ",g->mu[i*g->d+j]);
     printf("], sigma=diag([");
-    for(j=0;j<g->d;j++) printf("%g ",g->sigma[i*g->d+j]);    
+    for(j=0;j<g->d;j++) printf("%g ",g->sigma[i*g->d+j]);
     printf("])\n");
   }
   printf("]\n");
@@ -750,13 +819,13 @@ void gmm_print(const gmm_t *g) {
 
 
 void gmm_write(const gmm_t *g, FILE *f) {
-  
+
   WRITEANDCHECK(&g->d,1);
   WRITEANDCHECK(&g->k,1);
   WRITEANDCHECK(g->w,g->k);
   WRITEANDCHECK(g->mu,g->k*g->d);
   WRITEANDCHECK(g->sigma,g->k*g->d);
-  
+
 }
 
 #define READANDCHECK(a,n) if(fread(a,sizeof(*a),n,f)!=n) {perror("gmm_read"); abort(); }
@@ -769,11 +838,11 @@ gmm_t * gmm_read(FILE *f) {
   READANDCHECK(&k,1);
 
   gmm_t *g=gmm_new(d,k);
-  
+
   READANDCHECK(g->w,g->k);
   READANDCHECK(g->mu,g->k*g->d);
   READANDCHECK(g->sigma,g->k*g->d);
-  
+
   return g;
 }
 
@@ -789,7 +858,7 @@ typedef struct {
   const gmm_t * g;
   float * p;
   int do_norm;
-  int n_thread;   
+  int n_thread;
 } compute_p_params_t;
 
 /* n sliced */
@@ -797,13 +866,13 @@ static void compute_p_task_fun (void *arg, int tid, int i) {
   compute_p_params_t *t=arg;
   long n0=i*t->n/t->n_thread;
   long n1=(i+1)*t->n/t->n_thread;
-  
+
   gmm_compute_p(n1-n0, t->v+t->g->d*n0, t->g, t->p+t->g->k*n0, t->do_norm);
 }
 
-void gmm_compute_p_thread (int n, const float * v, 
-                           const gmm_t * g, 
-                           float * p, 
+void gmm_compute_p_thread (int n, const float * v,
+                           const gmm_t * g,
+                           float * p,
                            int do_norm,
                            int n_thread) {
   compute_p_params_t t={n,v,g,p,do_norm,n_thread};
@@ -823,7 +892,7 @@ static void compute_sum_dcov_task_fun (void *arg, int tid, int i) {
   compute_sum_dcov_t *t=arg;
   long n0=i*t->n/t->n_thread;
   long n1=(i+1)*t->n/t->n_thread;
-  
+
   compute_sum_dcov(n1-n0,t->k,t->d,t->v+t->d*n0,
                    t->mu_old,t->p+n0*t->k,
                    t->mu+i*t->d*t->k,
@@ -850,7 +919,7 @@ static void compute_sum_dcov_thread(int ni,int ki,int di,
   };
 
   compute_tasks(n_thread,n_thread,&compute_sum_dcov_task_fun,&t);
-  
+
   /* accumulate over n's */
 
   long i;
@@ -859,8 +928,8 @@ static void compute_sum_dcov_thread(int ni,int ki,int di,
   fvec_cpy(w,t.w,k);
   for(i=1;i<n_thread;i++) {
     fvec_add(mu,t.mu+i*d*k,d*k);
-    fvec_add(sigma,t.sigma+i*d*k,d*k);    
-    fvec_add(w,t.w+i*k,k);    
+    fvec_add(sigma,t.sigma+i*d*k,d*k);
+    fvec_add(w,t.w+i*k,k);
   }
   free(t.mu);
   free(t.sigma);

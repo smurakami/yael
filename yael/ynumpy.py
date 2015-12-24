@@ -333,6 +333,30 @@ def gmm_learn(v, k,
     return gmm_npy
 
 
+def gmm_learn_w(v, w, k,
+                nt=1,
+                niter=30,
+                seed=0,
+                redo=1,
+                use_weights=True):
+    _check_row_float32(v)
+    n, d = v.shape
+
+    flags = 0
+    if use_weights:
+        flags |= yael.GMM_FLAGS_W
+
+    gmm = yael.gmm_learn_w(d, n, k, niter,
+                           yael.numpy_to_fvec_ref(v),
+                           yael.numpy_to_fvec_ref(w),
+                           nt, seed, redo, flags)
+
+    gmm_npy = _gmm_to_numpy(gmm)
+
+    yael.gmm_delete(gmm)
+    return gmm_npy
+
+
 def gmm_read(filename):
     gmm = yael.gmm_read(open(filename, "r"))
     gmm_npy = _gmm_to_numpy(gmm)
