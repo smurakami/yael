@@ -15,3 +15,5 @@ progs/kmeans
 progs/knn
 yael/libyael.a
 yael/yael.py
+*.dSYM
+*.dylib
