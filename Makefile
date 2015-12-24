@@ -1,21 +1,22 @@
-.SUFFIXES: .c .o .swg 
+.SUFFIXES: .c .o .swg
 
 include makefile.inc
 
-CC=gcc 
+CC=gcc
 
 
 ALLDIRS=yael progs
 
-all: $(addprefix compiledir.,$(ALLDIRS)) 
+all: $(addprefix compiledir.,$(ALLDIRS))
+	python test/py/test_gmm_w.py
 
-clean: $(addprefix cleandir.,$(ALLDIRS)) 
+clean: $(addprefix cleandir.,$(ALLDIRS))
 
 
 
-compiledir.%: 
+compiledir.%:
 	cd $(subst compiledir.,,$@); make
 
-cleandir.%: 
+cleandir.%:
 	cd $(subst cleandir.,,$@); make clean
 
