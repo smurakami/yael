@@ -96,9 +96,10 @@ gmm_t * gmm_learn (int d, int n, int k, int niter,
                    const float * v, int nt, int seed, int nredo,
                    int flags);
 
+/* gmm with sample weight */
 
-gmm_t * gmm_learn_w (int d, int n, int k, int niter,
-                     const float * v, const float * w, int nt, int seed, int nredo,
+gmm_t * gmm_learn_sw (int d, int n, int k, int niter,
+                     const float * v, const float * sw, int nt, int seed, int nredo,
                      int flags);
 
 
@@ -156,6 +157,11 @@ void gmm_compute_p_thread (int n, const float * v,
                            int flags,
                            int n_thread);
 
+void gmm_compute_p_sw_thread (int n, const float * v, const float * sw,
+                           const gmm_t * g,
+                           float * p,
+                           int flags,
+                           int n_thread);
 
 /*! @} */
 #endif

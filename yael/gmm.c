@@ -236,6 +236,96 @@ static void gmm_compute_params (int n, const float * v, const float * p,
   free (mu_old);
 }
 
+/* estimate the GMM parameters with sample weight */
+static void gmm_compute_params_sw (int n, const float * v, const float * sw, const float * p,
+                                   gmm_t * g,
+                                   int flags,
+                                   int n_thread)
+{
+  long i, j;
+
+  long d=g->d, k=g->k;
+  float * vtmp = fvec_new (d);
+  float * mu_old = fvec_new_cpy (g->mu, k * d);
+  float * w_old = fvec_new_cpy (g->w, k);
+
+  fvec_0 (g->w, k);
+  fvec_0 (g->mu, k * d);
+  fvec_0 (g->sigma, k * d);
+
+  if(1) {
+    /* slow and simple */
+    for (j = 0 ; j < k ; j++) {
+      double dtmp = 0;
+      for (i = 0 ; i < n ; i++) {
+        /* contribution to the gaussian weight */
+        dtmp += p[i * k + j] * sw[i];
+        /* contribution to mu */
+
+        fvec_cpy (vtmp, v + i * d, d);
+        fvec_mul_by (vtmp, d, p[i * k + j]);
+        fvec_mul_by (vtmp, d, sw[i]); /* add sample weight*/
+        fvec_add (g->mu + j * d, vtmp, d);
+
+        /* contribution to the variance */
+        fvec_cpy (vtmp, v + i * d, d);
+        fvec_sub (vtmp, mu_old + j * d, d);
+        fvec_sqr (vtmp, d);
+        fvec_mul_by (vtmp, d, p[i * k + j]);
+        fvec_mul_by (vtmp, d, sw[i]); /* add sample weight */
+        fvec_add (g->sigma + j * d, vtmp, d);
+
+      }
+      g->w[j] = dtmp;
+    }
+
+  } else {
+    /* fast and complicated */
+
+    if(n_thread<=1)
+      compute_sum_dcov(n,k,d,v,mu_old,p,g->mu,g->sigma,g->w);
+    else
+      compute_sum_dcov_thread(n,k,d,v,mu_old,p,g->mu,g->sigma,g->w,n_thread);
+  }
+
+  if(flags & GMM_FLAGS_1SIGMA) {
+    for (j = 0 ; j < k ; j++) {
+      float *sigma_j=g->sigma+j*d;
+      double var=fvec_sum(sigma_j,d)/d;
+      fvec_set(sigma_j,d,var);
+    }
+  }
+
+  long nz=0;
+  for(i=0;i<k*d;i++)
+    if(g->sigma[i]<min_sigma) {
+      g->sigma[i]=min_sigma;
+      nz++;
+    }
+
+  if(nz) printf("WARN %ld sigma diagonals are too small (set to %g)\n",nz,min_sigma);
+
+  assert(isfinite(fvec_sum(g->mu, k*d)));
+
+  for (j = 0 ; j < k ; j++) {
+    fvec_div_by (g->mu + j * d, d, g->w[j]);
+    fvec_div_by (g->sigma + j * d, d, g->w[j]);
+  }
+
+  assert(isfinite(fvec_sum(g->mu, k*d)));
+
+  fvec_normalize (g->w, k, 1);
+
+  printf ("w = ");
+  fvec_print (g->w, k);
+  double imfac = k * fvec_sum_sqr (g->w, k);
+  printf (" imfac = %.3f\n", imfac);
+
+  free (vtmp);
+  free (w_old);
+  free (mu_old);
+}
+
 
 
 double static sqr (double x)
@@ -396,6 +486,67 @@ void gmm_compute_p (int n, const float * v,
   free(logdetnr);
 }
 
+void gmm_compute_p_sw (int n, const float * v, const float * sw,
+                    const gmm_t * g,
+                    float * p,
+                    int flags)
+{
+  if(n==0) return; /* sgemm doesn't like empty matrices */
+
+  long i, j, l;
+  double dtmp;
+  long d=g->d, k=g->k;
+
+  /* p_i(x|\lambda)'s denominator, eq (7) */
+  float * logdetnr = fvec_new(k);
+
+  for (j = 0 ; j < k ; j++) {
+    logdetnr[j] = -d / 2.0 * log (2 * M_PI);
+    for (i = 0 ; i < d ; i++)
+      logdetnr[j] -= 0.5 * log (g->sigma[j * d + i]);
+  }
+
+  /* compute all probabilities in log domain */
+
+  /* compute squared Mahalanobis distances (result in p), log of numerator eq (7)  */
+
+  if(0) { /* simple & slow */
+    for (i = 0 ; i < n ; i++) {
+      for (j = 0 ; j < k ; j++) {
+        dtmp = 0;
+        for (l = 0 ; l < d ; l++) {
+          dtmp += sqr (v[i * d + l] - g->mu[j * d + l]) / g->sigma[j * d + l];
+        }
+        p[i * k + j] = dtmp;
+      }
+    }
+  } else { /* complicated & fast */
+    compute_mahalanobis_sqr(n,k,d,g->mu,g->sigma,v,p);
+  }
+
+  float *lg = (float*)malloc(sizeof(float) *  k);
+
+  if(flags & GMM_FLAGS_W) {
+    for (j = 0 ; j < k ; j++)
+      lg[j] = log(g->w[j]);
+  } else
+    memset(lg, 0, sizeof(float) * k);
+
+  for (i = 0 ; i < n ; i++) {
+    /* p contains log(p_j(x|\lambda)) eq (7) */
+    for (j = 0 ; j < k ; j++) {
+      p[i * k + j] = logdetnr[j] - 0.5 * p[i * k + j] + lg[j];
+    }
+
+    /* add sample weight to log(p_j(x|\lambda)) */
+    fvec_mul_by(p + i * k, k, sw[i]);
+  }
+  free(lg);
+  softmax_ref(k, n, p, p, NULL);
+
+  free(logdetnr);
+}
+
 
 
 void gmm_handle_empty(int n, const float *v, gmm_t *g, float *p) {
@@ -537,8 +688,8 @@ gmm_t * gmm_learn (int di, int ni, int ki, int niter,
   return g;
 }
 
-gmm_t * gmm_learn_w (int di, int ni, int ki, int niter,
-     const float * v, const float * w, int nt, int seed, int nredo,
+gmm_t * gmm_learn_sw (int di, int ni, int ki, int niter,
+     const float * v, const float * sw, int nt, int seed, int nredo,
      int flags)
 {
   long d=di,k=ki,n=ni;
@@ -572,18 +723,18 @@ gmm_t * gmm_learn_w (int di, int ni, int ki, int niter,
 
 
   /* start the EM algorithm */
-  fprintf (stdout, "<><><><> GMM  <><><><><>\n");
+  fprintf (stdout, "<><><><> GMM with sample weight <><><><><>\n");
 
   if(flags & GMM_FLAGS_PURE_KMEANS) niter=0;
 
   for (iter = 1 ; iter <= niter ; iter++) {
 
-    gmm_compute_p_thread (n, v, g, p, flags, nt);
+    gmm_compute_p_sw_thread (n, v, sw, g, p, flags, nt);
     fflush(stdout);
 
     gmm_handle_empty(n, v, g, p);
 
-    gmm_compute_params (n, v, p, g, flags, nt);
+    gmm_compute_params_sw (n, v, sw, p, g, flags, nt);
     fflush(stdout);
 
 
@@ -870,6 +1021,24 @@ static void compute_p_task_fun (void *arg, int tid, int i) {
   gmm_compute_p(n1-n0, t->v+t->g->d*n0, t->g, t->p+t->g->k*n0, t->do_norm);
 }
 
+typedef struct {
+  long n;
+  const float * v;
+  const float * sw; /* sample weight */
+  const gmm_t * g;
+  float * p;
+  int do_norm;
+  int n_thread;
+} compute_p_sw_params_t;
+
+static void compute_p_sw_task_fun (void *arg, int tid, int i) {
+  compute_p_sw_params_t *t=arg;
+  long n0=i*t->n/t->n_thread;
+  long n1=(i+1)*t->n/t->n_thread;
+
+  gmm_compute_p_sw(n1-n0, t->v+t->g->d*n0, t->sw, t->g, t->p+t->g->k*n0, t->do_norm);
+}
+
 void gmm_compute_p_thread (int n, const float * v,
                            const gmm_t * g,
                            float * p,
@@ -877,6 +1046,15 @@ void gmm_compute_p_thread (int n, const float * v,
                            int n_thread) {
   compute_p_params_t t={n,v,g,p,do_norm,n_thread};
   compute_tasks(n_thread,n_thread,&compute_p_task_fun,&t);
+}
+
+void gmm_compute_p_sw_thread (int n, const float * v, const float * sw,
+                           const gmm_t * g,
+                           float * p,
+                           int do_norm,
+                           int n_thread) {
+  compute_p_sw_params_t t={n,v,sw,g,p,do_norm,n_thread};
+  compute_tasks(n_thread,n_thread,&compute_p_sw_task_fun,&t);
 }
 
 

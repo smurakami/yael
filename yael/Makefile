@@ -1,4 +1,4 @@
-.SUFFIXES: .c .o .swg 
+.SUFFIXES: .c .o .swg
 
 include ../makefile.inc
 
@@ -12,18 +12,18 @@ ifeq "$(USEARPACK)" "yes"
 endif
 
 ifeq "$(USEOPENMP)" "yes"
-  OPENMPFLAG = -fopenmp 
+  OPENMPFLAG = -fopenmp
   EXTRAMATRIXFLAG+=-fopenmp
   EXTRAYAELLDFLAG+=-fopenmp
 endif
 
 
 #############################
-# Various  
+# Various
 
 LIBOBJ=matrix.o vector.o nn.o kmeans.o hkm.o gmm.o eigs.o \
        spectral_clustering.o sorting.o binheap.o machinedeps.o vlad.o kmlsh.o \
-       ivf.o hamming.o 
+       ivf.o hamming.o
 
 libyael.a: $(LIBOBJ)
 	ar r libyael.a $^
@@ -60,27 +60,27 @@ mmap_and_lock: mmap_and_lock.c
 machinedeps.o:  EXTRACFLAGS=$(OPENMPFLAG)
 
 #############################
-# Python wrapper 
+# Python wrapper
 
 
 yael_wrap.c : yael.swg common.swg nn.h kmeans.h gmm.h eigs.h hkm.h \
 	sorting.h matrix.h vector.h machinedeps.h vlad.h kmlsh.h binheap.h \
        ivf.h hamming.h
-	$(SWIG) -I.. $(NUMPYSWIGFLAGS) $< 
+	$(SWIG) -I.. $(NUMPYSWIGFLAGS) $<
 
 _yael.so: yael_wrap.o libyael.$(SHAREDEXT)
 	$(CC) $(LDFLAGS) -o $@ $(WRAPLDFLAGS) $^ $(PYTHONLDFLAGS) $(LAPACKLDFLAGS) $(THREADLDFLAGS) $(YAELLDFLAGS)
 
-__init__.py: 
+__init__.py:
 	touch $@
 
 #############################
-# Dependencies  
+# Dependencies
 
 # for i in *.c ; do cpp -I.. -MM $i; done
 
 binheap.o: binheap.c binheap.h sorting.h
-eigs.o: eigs.c eigs.h vector.h sorting.h machinedeps.h 
+eigs.o: eigs.c eigs.h vector.h sorting.h machinedeps.h
 gmm.o: gmm.c vector.h matrix.h kmeans.h nn.h gmm.h sorting.h
 kmeans.o: kmeans.c vector.h kmeans.h nn.h sorting.h
 hkm.o: hkm.c hkm.h kmeans.h vector.h kmeans.h nn.h
@@ -96,4 +96,4 @@ kmlsh.o: kmlsh.c vector.h nn.h hkm.h sorting.h kmeans.h machinedeps.h kmlsh.h
 ivf.o: ivf.c ivf.h hamming.h
 
 clean:
-	rm -f libyael.a libyael.$(SHAREDEXT)* *.o yael.py *.pyc yael_wrap.c _yael.so 
+	rm -rf libyael.a libyael.$(SHAREDEXT)* *.o yael.py *.pyc yael_wrap.c _yael.so

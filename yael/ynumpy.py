@@ -333,7 +333,7 @@ def gmm_learn(v, k,
     return gmm_npy
 
 
-def gmm_learn_w(v, w, k,
+def gmm_learn_sw(v, sw, k,
                 nt=1,
                 niter=30,
                 seed=0,
@@ -346,9 +346,9 @@ def gmm_learn_w(v, w, k,
     if use_weights:
         flags |= yael.GMM_FLAGS_W
 
-    gmm = yael.gmm_learn_w(d, n, k, niter,
+    gmm = yael.gmm_learn_sw(d, n, k, niter,
                            yael.numpy_to_fvec_ref(v),
-                           yael.numpy_to_fvec_ref(w),
+                           yael.numpy_to_fvec_ref(sw),
                            nt, seed, redo, flags)
 
     gmm_npy = _gmm_to_numpy(gmm)
