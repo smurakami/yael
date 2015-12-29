@@ -535,11 +535,11 @@ void gmm_compute_p_sw (int n, const float * v, const float * sw,
   for (i = 0 ; i < n ; i++) {
     /* p contains log(p_j(x|\lambda)) eq (7) */
     for (j = 0 ; j < k ; j++) {
-      p[i * k + j] = logdetnr[j] - 0.5 * p[i * k + j] + lg[j];
+      p[i * k + j] = (logdetnr[j] - 0.5 * p[i * k + j] + lg[j]) * sw[i];
     }
 
     /* add sample weight to log(p_j(x|\lambda)) */
-    fvec_mul_by(p + i * k, k, sw[i]);
+    // fvec_mul_by(p + i * k, k, sw[i]);
   }
   free(lg);
   softmax_ref(k, n, p, p, NULL);
@@ -971,7 +971,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
   float * sum_pj = NULL; /* sum of p's for a given j */
   float * sw_diag = fmat_new_diag(sw, n);
 
-  gmm_compute_p(n,v,g,p,flags | GMM_FLAGS_W);
+  gmm_compute_p_sw(n,v,sw,g,p,flags | GMM_FLAGS_W);
 
 #define P(j,i) p[(i)*k+(j)]
 #define V(l,i) v[(i)*d+(l)]
@@ -999,14 +999,15 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 
 #define DP_DMU(l,j) dp_dmu[(j)*d+(l)]
 
-    if(1) { /* simple and slow */
+    if(0) { /* simple and slow */
+    printf("hello\n");
 
       for(j=0;j<k;j++) {
         for(l=0;l<d;l++) {
           double accu=0;
 
           for(i=0;i<n;i++)
-            accu += P(j,i) * (V(l,i)-MU(l,j)) / SIGMA(l,j) * sw[i];
+            accu += sw[i] * P(j,i) * (V(l,i)-MU(l,j)) / SIGMA(l,j);
 
           DP_DMU(l,j)=accu;
         }
@@ -1016,12 +1017,15 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 
       /* precompute  tables that may be useful for sigma too */
       vp = fvec_new(k * d);
-      fmat_mul_tr(v,p,d,k,n,vp);
+      float *vw = fvec_new(n * n);
+      fmat_mul_tr(v,sw_diag,d,n,n,vw);
+      fmat_mul_tr(vw,p,d,k,n,vp);
+      free(vw);
 
       sum_pj = fvec_new(k);
       for(j=0;j<k;j++) {
         double sum=0;
-        for(i=0;i<n;i++) sum += P(j,i);
+        for(i=0;i<n;i++) sum += P(j,i) * sw[i];
         sum_pj[j] = sum;
       }
 

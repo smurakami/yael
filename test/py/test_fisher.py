@@ -11,11 +11,11 @@ dat_weighted = np.vstack([np.vstack([dat[i]] * sw[i])
 
 # np.ones(len(dat), dtype=np.float32)
 
-a = ynumpy.fisher(gmm, dat_weighted.astype(np.float32), include='mu+sigma')
-b = ynumpy.fisher_sw(gmm, dat.astype(np.float32), sw, include='mu+sigma')
+a = ynumpy.fisher(gmm, dat_weighted.astype(np.float32), include='mu')
+b = ynumpy.fisher_sw(gmm, dat.astype(np.float32), sw, include='mu')
 
 print ''
 print '==========='
 print ''
 
-print a - b
+print np.dstack([a, b])
