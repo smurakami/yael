@@ -392,6 +392,38 @@ def fisher(gmm_npy, v,
 
     return fisher_out
 
+
+def fisher_sw(gmm_npy, v, sw,
+              include='mu'):
+    """
+    fisher vector with sample weight
+    """
+
+    _check_row_float32(v)
+    n, d = v.shape
+
+    gmm = _numpy_to_gmm(gmm_npy)
+    assert d == gmm.d
+
+    flags = 0
+
+    if 'mu' in include:
+        flags |= yael.GMM_FLAGS_MU
+    if 'sigma' in include:
+        flags |= yael.GMM_FLAGS_SIGMA
+    if 'w' in include:
+        flags |= yael.GMM_FLAGS_W
+
+    d_fisher = yael.gmm_fisher_sizeof(gmm, flags)
+
+    fisher_out = numpy.zeros(d_fisher, dtype=numpy.float32)
+
+    yael.gmm_fisher_sw(n,
+                       yael.numpy_to_fvec_ref(v),
+                       yael.numpy_to_fvec_ref(sw),
+                       gmm, flags, yael.numpy_to_fvec_ref(fisher_out))
+
+    return fisher_out
 ####################################################
 # Fast versions of slow Numpy operations
 

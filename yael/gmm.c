@@ -952,6 +952,208 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 }
 
 
+static float* fmat_new_diag(const float *v, const int n) {
+  float* mat = fvec_new_0(n * n);
+  for (int i = 0; i < n; i++) {
+    mat[i * n + i] = v[i];
+  }
+  return mat;
+}
+
+// Fisher vector with sample weight
+void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int flags, float *dp_dlambda) {
+  long d=g->d, k=g->k;
+  float *p = fvec_new(n * k);
+  long i,j,l;
+  long ii=0;
+
+  float * vp = NULL; /* v*p */
+  float * sum_pj = NULL; /* sum of p's for a given j */
+  float * sw_diag = fmat_new_diag(sw, n);
+
+  gmm_compute_p(n,v,g,p,flags | GMM_FLAGS_W);
+
+#define P(j,i) p[(i)*k+(j)]
+#define V(l,i) v[(i)*d+(l)]
+#define MU(l,j) g->mu[(j)*d+(l)]
+#define SIGMA(l,j) g->sigma[(j)*d+(l)]
+#define VP(l,j) vp[(j)*d+(l)]
+
+  if(flags & GMM_FLAGS_W) {
+
+    for(j=1;j<k;j++) {
+      double accu=0;
+
+      for(i=0;i<n;i++)
+        accu+= (P(j,i)/g->w[j] - P(0,i)/g->w[0]) * sw[i];
+
+      /* normalization */
+      double f=n*(1/g->w[j]+1/g->w[0]);
+
+      dp_dlambda[ii++]=accu/sqrt(f);
+    }
+  }
+
+  if(flags & GMM_FLAGS_MU) {
+    float *dp_dmu=dp_dlambda+ii;
+
+#define DP_DMU(l,j) dp_dmu[(j)*d+(l)]
+
+    if(1) { /* simple and slow */
+
+      for(j=0;j<k;j++) {
+        for(l=0;l<d;l++) {
+          double accu=0;
+
+          for(i=0;i<n;i++)
+            accu += P(j,i) * (V(l,i)-MU(l,j)) / SIGMA(l,j) * sw[i];
+
+          DP_DMU(l,j)=accu;
+        }
+      }
+
+    } else { /* complicated and fast */
+
+      /* precompute  tables that may be useful for sigma too */
+      vp = fvec_new(k * d);
+      fmat_mul_tr(v,p,d,k,n,vp);
+
+      sum_pj = fvec_new(k);
+      for(j=0;j<k;j++) {
+        double sum=0;
+        for(i=0;i<n;i++) sum += P(j,i);
+        sum_pj[j] = sum;
+      }
+
+      for(j=0;j<k;j++) {
+        for(l=0;l<d;l++)
+          DP_DMU(l,j) = (VP(l,j) - MU(l,j) * sum_pj[j]) / SIGMA(l,j);
+      }
+
+    }
+
+    /* normalization */
+    if(!(flags & GMM_FLAGS_NO_NORM)) {
+      for(j=0;j<k;j++)
+        for(l=0;l<d;l++) {
+          float nf = sqrt(n*g->w[j]/SIGMA(l,j));
+          if(nf > 0) DP_DMU(l,j) /= nf;
+        }
+    }
+#undef DP_DMU
+    ii+=d*k;
+  }
+
+  if(flags & (GMM_FLAGS_SIGMA | GMM_FLAGS_1SIGMA)) {
+
+
+    if(flags & GMM_FLAGS_1SIGMA) { /* fast not implemented for 1 sigma */
+
+      for(j=0;j<k;j++) {
+        double accu2=0;
+        for(l=0;l<d;l++) {
+          double accu=0;
+
+          for(i=0;i<n;i++)
+            accu += P(j,i) * (sqr(V(l,i)-MU(l,j)) / SIGMA(l,j) - 1) / sqrt(SIGMA(l,j)) * sw[i];
+
+          if(flags & GMM_FLAGS_SIGMA) {
+
+            double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*n*g->w[j]/SIGMA(l,j);
+
+            dp_dlambda[ii++]=accu/sqrt(f);
+          }
+          accu2+=accu;
+        }
+
+        if(flags & GMM_FLAGS_1SIGMA) {
+          double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*d*n*g->w[j]/SIGMA(0,j);
+          dp_dlambda[ii++]=accu2/sqrt(f);
+        }
+
+      }
+
+    } else { /* fast and complicated */
+      assert(flags & GMM_FLAGS_SIGMA);
+      float *dp_dsigma = dp_dlambda + ii;
+
+      if(!vp) {
+        vp = fvec_new(k * d);
+        float * vw = fvec_new_0(d * n);
+        fmat_mul_tr(v,sw_diag,d,n,n,vw); // add sample weight to v
+        fmat_mul_tr(vw,p,d,k,n,vp);
+        free(vw);
+      }
+
+      if(!sum_pj) {
+        sum_pj = fvec_new(k);
+        for(j=0;j<k;j++) {
+          double sum=0;
+          for(i=0;i<n;i++) sum += P(j,i) * sw[i];
+          sum_pj[j] = sum;
+        }
+      }
+      float *v2 = fvec_new(n * d);
+      for(i = n*d-1 ; i >= 0; i--) v2[i] = v[i] * v[i];
+      float *v2p = fvec_new(k * d);
+      float *v2w = fvec_new(n * n);
+      fmat_mul_tr(v2,sw_diag,d,n,n,v2w);
+
+      fmat_mul_tr(v2w,p,d,k,n,v2p);
+      free(v2);
+      free(v2w);
+
+
+#define V2P(l,j) v2p[(j)*d+(l)]
+#define DP_DSIGMA(i,j) dp_dsigma[(i)+(j)*d]
+      for(j=0;j<k;j++) {
+
+        for(l=0;l<d;l++) {
+          double accu;
+
+          accu = V2P(l, j);
+
+          accu += VP(l, j) * (- 2 * MU(l,j));
+
+          accu += sum_pj[j] * (sqr(MU(l,j))  - SIGMA(l,j));
+
+          /* normalization */
+
+          double f;
+
+          if(flags & GMM_FLAGS_NO_NORM) {
+            f = pow(SIGMA(l,j), -1.5);
+          } else {
+            f = 1 / (SIGMA(l,j) * sqrt(2*n*g->w[j]));
+          }
+
+          DP_DSIGMA(l,j) = accu * f;
+
+        }
+
+      }
+
+      free(v2p);
+
+#undef DP_DSIGMA
+#undef V2P
+      ii += d * k;
+    }
+
+  }
+
+  assert(ii==gmm_fisher_sizeof(g,flags));
+#undef P
+#undef V
+#undef MU
+#undef SIGMA
+  free(sw_diag);
+  free(p);
+  free(sum_pj);
+  free(vp);
+}
+
+
 
 void gmm_print(const gmm_t *g) {
   printf("gmm (%d gaussians in %d dim)=[\n",g->k,g->d);
