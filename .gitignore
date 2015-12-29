@@ -17,3 +17,4 @@ yael/libyael.a
 yael/yael.py
 *.dSYM
 *.dylib
+*.npy
