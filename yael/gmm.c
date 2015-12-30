@@ -525,65 +525,6 @@ void gmm_compute_p (int n, const float * v,
   free(logdetnr);
 }
 
-void gmm_compute_p_sw (int n, const float * v, const float * sw,
-                    const gmm_t * g,
-                    float * p,
-                    int flags)
-{
-  if(n==0) return; /* sgemm doesn't like empty matrices */
-
-  long i, j, l;
-  double dtmp;
-  long d=g->d, k=g->k;
-
-  /* p_i(x|\lambda)'s denominator, eq (7) */
-  float * logdetnr = fvec_new(k);
-
-  for (j = 0 ; j < k ; j++) {
-    logdetnr[j] = -d / 2.0 * log (2 * M_PI);
-    for (i = 0 ; i < d ; i++)
-      logdetnr[j] -= 0.5 * log (g->sigma[j * d + i]);
-  }
-
-  /* compute all probabilities in log domain */
-
-  /* compute squared Mahalanobis distances (result in p), log of numerator eq (7)  */
-
-  if(0) { /* simple & slow */
-    for (i = 0 ; i < n ; i++) {
-      for (j = 0 ; j < k ; j++) {
-        dtmp = 0;
-        for (l = 0 ; l < d ; l++) {
-          dtmp += sqr (v[i * d + l] - g->mu[j * d + l]) / g->sigma[j * d + l];
-        }
-        p[i * k + j] = dtmp;
-      }
-    }
-  } else { /* complicated & fast */
-    compute_mahalanobis_sqr(n,k,d,g->mu,g->sigma,v,p);
-  }
-
-  float *lg = (float*)malloc(sizeof(float) *  k);
-
-  if(flags & GMM_FLAGS_W) {
-    for (j = 0 ; j < k ; j++)
-      lg[j] = log(g->w[j]);
-  } else
-    memset(lg, 0, sizeof(float) * k);
-
-  for (i = 0 ; i < n ; i++) {
-    /* p contains log(p_j(x|\lambda)) eq (7) */
-    for (j = 0 ; j < k ; j++) {
-      p[i * k + j] = (logdetnr[j] - 0.5 * p[i * k + j] + lg[j]);
-    }
-  }
-  free(lg);
-  softmax_ref(k, n, p, p, NULL);
-
-  free(logdetnr);
-}
-
-
 
 void gmm_handle_empty(int n, const float *v, gmm_t *g, float *p) {
   long d=g->d, k=g->k;
@@ -1273,14 +1214,6 @@ typedef struct {
   int n_thread;
 } compute_p_sw_params_t;
 
-static void compute_p_sw_task_fun (void *arg, int tid, int i) {
-  compute_p_sw_params_t *t=arg;
-  long n0=i*t->n/t->n_thread;
-  long n1=(i+1)*t->n/t->n_thread;
-
-  gmm_compute_p_sw(n1-n0, t->v+t->g->d*n0, t->sw, t->g, t->p+t->g->k*n0, t->do_norm);
-}
-
 void gmm_compute_p_thread (int n, const float * v,
                            const gmm_t * g,
                            float * p,
@@ -1289,16 +1222,6 @@ void gmm_compute_p_thread (int n, const float * v,
   compute_p_params_t t={n,v,g,p,do_norm,n_thread};
   compute_tasks(n_thread,n_thread,&compute_p_task_fun,&t);
 }
-
-void gmm_compute_p_sw_thread (int n, const float * v, const float * sw,
-                           const gmm_t * g,
-                           float * p,
-                           int do_norm,
-                           int n_thread) {
-  compute_p_sw_params_t t={n,v,sw,g,p,do_norm,n_thread};
-  compute_tasks(n_thread,n_thread,&compute_p_sw_task_fun,&t);
-}
-
 
 typedef struct {
   long n,k,d;

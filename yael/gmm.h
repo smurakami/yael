@@ -160,18 +160,7 @@ void gmm_compute_p_thread (int n, const float * v,
                            int flags,
                            int n_thread);
 
-void gmm_compute_p_sw_thread (int n, const float * v, const float * sw,
-                           const gmm_t * g,
-                           float * p,
-                           int flags,
-                           int n_thread);
-
 void gmm_compute_p (int n, const float * v,
-                    const gmm_t * g,
-                    float * p,
-                    int flags);
-
-void gmm_compute_p_sw (int n, const float * v, const float * sw,
                     const gmm_t * g,
                     float * p,
                     int flags);
