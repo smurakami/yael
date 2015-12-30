@@ -988,14 +988,6 @@ void gmm_fisher(int n, const float *v, const gmm_t * g, int flags, float *dp_dla
 }
 
 
-static float* fmat_new_diag(const float *v, const int n) {
-  float* mat = fvec_new_0(n * n);
-  for (int i = 0; i < n; i++) {
-    mat[i * n + i] = v[i];
-  }
-  return mat;
-}
-
 // Fisher vector with sample weight
 void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int flags, float *dp_dlambda) {
   long d=g->d, k=g->k;
@@ -1005,7 +997,6 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 
   float * vp = NULL; /* v*p */
   float * sum_pj = NULL; /* sum of p's for a given j */
-  float * sw_diag = fmat_new_diag(sw, n);
   float mean_sw = 0; /* mean sample weight */
   for (int i = 0; i < n; i++) {
     mean_sw += sw[i];
@@ -1058,8 +1049,10 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 
       /* precompute  tables that may be useful for sigma too */
       vp = fvec_new(k * d);
-      float *vw = fvec_new(n * n);
-      fmat_mul_tr(v,sw_diag,d,n,n,vw);
+      float *vw = fvec_new_cpy(v, n * d);
+      for (int i = 0; i < n; i++) {
+        fvec_mul_by(vw + i * d, d, sw[i]);
+      }
       fmat_mul_tr(vw,p,d,k,n,vp);
       free(vw);
 
@@ -1124,8 +1117,10 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 
       if(!vp) {
         vp = fvec_new(k * d);
-        float * vw = fvec_new_0(d * n);
-        fmat_mul_tr(v,sw_diag,d,n,n,vw); // add sample weight to v
+        float * vw = fvec_new_cpy(v, n * d);
+        for (int i = 0; i < n; i++) {
+          fvec_mul_by(vw + i * d, d, sw[i]);
+        }
         fmat_mul_tr(vw,p,d,k,n,vp);
         free(vw);
       }
@@ -1141,8 +1136,11 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
       float *v2 = fvec_new(n * d);
       for(i = n*d-1 ; i >= 0; i--) v2[i] = v[i] * v[i];
       float *v2p = fvec_new(k * d);
-      float *v2w = fvec_new(n * n);
-      fmat_mul_tr(v2,sw_diag,d,n,n,v2w);
+      float *v2w = fvec_new_cpy(v2, n * d);
+
+      for (i = 0; i < n; i++) {
+        fvec_mul_by(v2w + i * d, d, sw[i]);
+      }
 
       fmat_mul_tr(v2w,p,d,k,n,v2p);
       free(v2);
@@ -1192,7 +1190,6 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 #undef V
 #undef MU
 #undef SIGMA
-  free(sw_diag);
   free(p);
   free(sum_pj);
   free(vp);
