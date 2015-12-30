@@ -1020,7 +1020,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
         accu+= (P(j,i)/g->w[j] - P(0,i)/g->w[0]) * sw[i];
 
       /* normalization */
-      double f=n*(1/g->w[j]+1/g->w[0]);
+      double f=n*mean_sw*(1/g->w[j]+1/g->w[0]);
 
       dp_dlambda[ii++]=accu/sqrt(f);
     }
@@ -1032,8 +1032,6 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 #define DP_DMU(l,j) dp_dmu[(j)*d+(l)]
 
     if(0) { /* simple and slow */
-      printf("hello\n");
-
       for(j=0;j<k;j++) {
         for(l=0;l<d;l++) {
           double accu=0;
