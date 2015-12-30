@@ -7,7 +7,7 @@ dat = np.load('test/py/test_dat.npy')
 cluster_num = len(set(label))
 print cluster_num
 
-cluster_w = np.array([(i + 2) % 5 for i in xrange(cluster_num)])
+cluster_w = np.array([(i + 2) % 5 != 0 for i in xrange(cluster_num)])
 
 obs = np.vstack([np.vstack([dat[label == c]] * cluster_w[c]) for c in xrange(cluster_num) if cluster_w[c] != 0])
 

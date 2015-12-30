@@ -8,7 +8,7 @@ CC=gcc
 ALLDIRS=yael progs
 
 all: $(addprefix compiledir.,$(ALLDIRS))
-	python test/py/test_fisher.py
+	python test/py/test_gmm_w.py
 
 clean: $(addprefix cleandir.,$(ALLDIRS))
 

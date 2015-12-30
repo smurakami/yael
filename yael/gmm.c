@@ -765,7 +765,7 @@ gmm_t * gmm_learn_sw (int di, int ni, int ki, int niter,
 
   for (iter = 1 ; iter <= niter ; iter++) {
 
-    gmm_compute_p_sw_thread (n, v, sw, g, p, flags, nt);
+    gmm_compute_p_thread (n, v, g, p, flags, nt);
     fflush(stdout);
 
     gmm_handle_empty(n, v, g, p);
