@@ -425,6 +425,45 @@ static void softmax_ref(int k, int n, const float *f, float *p, float *coeffs) {
 
 }
 
+// softmax with sample weight
+static void softmax_sw_ref(int k, int n, const float *f, const float *sw, float *p, float *coeffs) {
+  int i;
+  float norm_to_0 = 16.636; /* log(2^24) */
+
+#define F(i,j) f[(i) + (j) * k]
+#define P(i,j) p[(i) + (j) * k]
+
+  for (i = 0; i < n; i++) { /* loop over examples */
+    int l;
+
+    /* find max */
+    float maxval = -1e30;
+    for(l = 0; l < k; l++) /* loop over examples */
+      if(F(l, i) > maxval) maxval = F(l, i);
+
+    float s = 0.0;
+    for(l = 0; l < k; l++) {
+      /* P(l, i) = exp(F(l, i) - maxval); */
+      if(F(l, i) > maxval - norm_to_0) {
+        P(l, i) = exp(F(l, i) - maxval);
+        s += P(l, i); // add sample weight to softmaft
+      } else
+        P(l, i) = 0;
+    }
+
+    if(coeffs)
+      coeffs[i] = log(s) + maxval;
+
+    float is = 1.0 / s;
+    for(l = 0; l < k; l++)
+      P(l, i) *= is;
+  }
+
+#undef F
+#undef P
+
+}
+
 
 /* compute p(ci|x). Warning: also update det */
 
@@ -535,11 +574,8 @@ void gmm_compute_p_sw (int n, const float * v, const float * sw,
   for (i = 0 ; i < n ; i++) {
     /* p contains log(p_j(x|\lambda)) eq (7) */
     for (j = 0 ; j < k ; j++) {
-      p[i * k + j] = (logdetnr[j] - 0.5 * p[i * k + j] + lg[j]) * sw[i];
+      p[i * k + j] = (logdetnr[j] - 0.5 * p[i * k + j] + lg[j]);
     }
-
-    /* add sample weight to log(p_j(x|\lambda)) */
-    // fvec_mul_by(p + i * k, k, sw[i]);
   }
   free(lg);
   softmax_ref(k, n, p, p, NULL);
@@ -970,8 +1006,13 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
   float * vp = NULL; /* v*p */
   float * sum_pj = NULL; /* sum of p's for a given j */
   float * sw_diag = fmat_new_diag(sw, n);
+  float mean_sw = 0; /* mean sample weight */
+  for (int i = 0; i < n; i++) {
+    mean_sw += sw[i];
+  }
+  mean_sw = mean_sw / n;
 
-  gmm_compute_p_sw(n,v,sw,g,p,flags | GMM_FLAGS_W);
+  gmm_compute_p(n,v,g,p,flags | GMM_FLAGS_W);
 
 #define P(j,i) p[(i)*k+(j)]
 #define V(l,i) v[(i)*d+(l)]
@@ -1000,7 +1041,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 #define DP_DMU(l,j) dp_dmu[(j)*d+(l)]
 
     if(0) { /* simple and slow */
-    printf("hello\n");
+      printf("hello\n");
 
       for(j=0;j<k;j++) {
         for(l=0;l<d;l++) {
@@ -1040,7 +1081,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
     if(!(flags & GMM_FLAGS_NO_NORM)) {
       for(j=0;j<k;j++)
         for(l=0;l<d;l++) {
-          float nf = sqrt(n*g->w[j]/SIGMA(l,j));
+          float nf = sqrt((n * mean_sw)*g->w[j]/SIGMA(l,j));
           if(nf > 0) DP_DMU(l,j) /= nf;
         }
     }

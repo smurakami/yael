@@ -424,6 +424,68 @@ def fisher_sw(gmm_npy, v, sw,
                        gmm, flags, yael.numpy_to_fvec_ref(fisher_out))
 
     return fisher_out
+
+
+def gmm_compute_p(gmm_npy, v,
+                  include='mu'):
+
+    _check_row_float32(v)
+    n, d = v.shape
+
+    gmm = _numpy_to_gmm(gmm_npy)
+    assert d == gmm.d
+
+    flags = 0
+
+    if 'mu' in include:
+        flags |= yael.GMM_FLAGS_MU
+    if 'sigma' in include:
+        flags |= yael.GMM_FLAGS_SIGMA
+    if 'w' in include:
+        flags |= yael.GMM_FLAGS_W
+
+    p_out = numpy.zeros(n * gmm.k, dtype=numpy.float32)
+
+    yael.gmm_compute_p(n,
+                       yael.numpy_to_fvec_ref(v),
+                       gmm,
+                       yael.numpy_to_fvec_ref(p_out),
+                       flags | yael.GMM_FLAGS_W)
+
+    return p_out.reshape((n, gmm.k))
+
+
+def gmm_compute_p_sw(gmm_npy, v, sw,
+                     include='mu'):
+    """
+    fisher vector with sample weight
+    """
+
+    _check_row_float32(v)
+    n, d = v.shape
+
+    gmm = _numpy_to_gmm(gmm_npy)
+    assert d == gmm.d
+
+    flags = 0
+
+    if 'mu' in include:
+        flags |= yael.GMM_FLAGS_MU
+    if 'sigma' in include:
+        flags |= yael.GMM_FLAGS_SIGMA
+    if 'w' in include:
+        flags |= yael.GMM_FLAGS_W
+
+    p_out = numpy.zeros(n * gmm.k, dtype=numpy.float32)
+
+    yael.gmm_compute_p_sw(n,
+                          yael.numpy_to_fvec_ref(v),
+                          yael.numpy_to_fvec_ref(sw),
+                          gmm,
+                          yael.numpy_to_fvec_ref(p_out),
+                          flags | yael.GMM_FLAGS_W)
+
+    return p_out.reshape((n, gmm.k))
 ####################################################
 # Fast versions of slow Numpy operations
 

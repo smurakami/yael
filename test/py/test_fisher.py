@@ -18,4 +18,6 @@ print ''
 print '==========='
 print ''
 
-print np.dstack([a, b])
+print a
+print b
+print a - b
