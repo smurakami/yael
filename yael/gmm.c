@@ -1104,7 +1104,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
 
           if(flags & GMM_FLAGS_SIGMA) {
 
-            double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*n*g->w[j]/SIGMA(l,j);
+            double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*mean_sw*n*g->w[j]/SIGMA(l,j);
 
             dp_dlambda[ii++]=accu/sqrt(f);
           }
@@ -1112,7 +1112,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
         }
 
         if(flags & GMM_FLAGS_1SIGMA) {
-          double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*d*n*g->w[j]/SIGMA(0,j);
+          double f=flags & GMM_FLAGS_NO_NORM ? 1.0 : 2*d*mean_sw*n*g->w[j]/SIGMA(0,j);
           dp_dlambda[ii++]=accu2/sqrt(f);
         }
 
@@ -1169,7 +1169,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
           if(flags & GMM_FLAGS_NO_NORM) {
             f = pow(SIGMA(l,j), -1.5);
           } else {
-            f = 1 / (SIGMA(l,j) * sqrt(2*n*g->w[j]));
+            f = 1 / (SIGMA(l,j) * sqrt(2*mean_sw*n*g->w[j]));
           }
 
           DP_DSIGMA(l,j) = accu * f;
