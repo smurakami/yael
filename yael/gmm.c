@@ -939,7 +939,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
   float * vp = NULL; /* v*p */
   float * sum_pj = NULL; /* sum of p's for a given j */
   float mean_sw = 0; /* mean sample weight */
-  for (int i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
     mean_sw += sw[i];
   }
   mean_sw = mean_sw / n;
@@ -989,7 +989,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
       /* precompute  tables that may be useful for sigma too */
       vp = fvec_new(k * d);
       float *vw = fvec_new_cpy(v, n * d);
-      for (int i = 0; i < n; i++) {
+      for (i = 0; i < n; i++) {
         fvec_mul_by(vw + i * d, d, sw[i]);
       }
       fmat_mul_tr(vw,p,d,k,n,vp);
@@ -1057,7 +1057,7 @@ void gmm_fisher_sw(int n, const float *v, const float *sw, const gmm_t * g, int 
       if(!vp) {
         vp = fvec_new(k * d);
         float * vw = fvec_new_cpy(v, n * d);
-        for (int i = 0; i < n; i++) {
+        for (i = 0; i < n; i++) {
           fvec_mul_by(vw + i * d, d, sw[i]);
         }
         fmat_mul_tr(vw,p,d,k,n,vp);
