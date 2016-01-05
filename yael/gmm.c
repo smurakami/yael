@@ -425,46 +425,6 @@ static void softmax_ref(int k, int n, const float *f, float *p, float *coeffs) {
 
 }
 
-// softmax with sample weight
-static void softmax_sw_ref(int k, int n, const float *f, const float *sw, float *p, float *coeffs) {
-  int i;
-  float norm_to_0 = 16.636; /* log(2^24) */
-
-#define F(i,j) f[(i) + (j) * k]
-#define P(i,j) p[(i) + (j) * k]
-
-  for (i = 0; i < n; i++) { /* loop over examples */
-    int l;
-
-    /* find max */
-    float maxval = -1e30;
-    for(l = 0; l < k; l++) /* loop over examples */
-      if(F(l, i) > maxval) maxval = F(l, i);
-
-    float s = 0.0;
-    for(l = 0; l < k; l++) {
-      /* P(l, i) = exp(F(l, i) - maxval); */
-      if(F(l, i) > maxval - norm_to_0) {
-        P(l, i) = exp(F(l, i) - maxval);
-        s += P(l, i); // add sample weight to softmaft
-      } else
-        P(l, i) = 0;
-    }
-
-    if(coeffs)
-      coeffs[i] = log(s) + maxval;
-
-    float is = 1.0 / s;
-    for(l = 0; l < k; l++)
-      P(l, i) *= is;
-  }
-
-#undef F
-#undef P
-
-}
-
-
 /* compute p(ci|x). Warning: also update det */
 
 void gmm_compute_p (int n, const float * v,
@@ -1203,16 +1163,6 @@ static void compute_p_task_fun (void *arg, int tid, int i) {
 
   gmm_compute_p(n1-n0, t->v+t->g->d*n0, t->g, t->p+t->g->k*n0, t->do_norm);
 }
-
-typedef struct {
-  long n;
-  const float * v;
-  const float * sw; /* sample weight */
-  const gmm_t * g;
-  float * p;
-  int do_norm;
-  int n_thread;
-} compute_p_sw_params_t;
 
 void gmm_compute_p_thread (int n, const float * v,
                            const gmm_t * g,
